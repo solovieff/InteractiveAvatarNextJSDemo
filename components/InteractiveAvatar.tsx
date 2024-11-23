@@ -2,7 +2,10 @@ import type { StartAvatarResponse } from "@heygen/streaming-avatar";
 
 import StreamingAvatar, {
   AvatarQuality,
-  StreamingEvents, TaskMode, TaskType, VoiceEmotion,
+  StreamingEvents,
+  TaskMode,
+  TaskType,
+  VoiceEmotion,
 } from "@heygen/streaming-avatar";
 import {
   Button,
@@ -23,7 +26,12 @@ import { useMemoizedFn, usePrevious } from "ahooks";
 
 import InteractiveAvatarTextInput from "./InteractiveAvatarTextInput";
 
-import {AVATARS, STT_LANGUAGE_LIST} from "@/app/lib/constants";
+import { AVATARS, STT_LANGUAGE_LIST } from "@/app/lib/constants";
+
+type PrivateAvatar = {
+  webSocket: WebSocket;
+  audioRawFrame: any;
+};
 
 export default function InteractiveAvatar() {
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -32,7 +40,7 @@ export default function InteractiveAvatar() {
   const [debug, setDebug] = useState<string>();
   const [knowledgeId, setKnowledgeId] = useState<string>("");
   const [avatarId, setAvatarId] = useState<string>("");
-  const [language, setLanguage] = useState<string>('en');
+  const [language, setLanguage] = useState<string>("en");
 
   const [data, setData] = useState<StartAvatarResponse>();
   const [text, setText] = useState<string>("");
@@ -40,6 +48,42 @@ export default function InteractiveAvatar() {
   const avatar = useRef<StreamingAvatar | null>(null);
   const [chatMode, setChatMode] = useState("text_mode");
   const [isUserTalking, setIsUserTalking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  async function handleUserMessage(message: any) {
+    if (isProcessing || !avatar.current) return;
+
+    setIsProcessing(true);
+    try {
+      //Prevent default avatar response
+      console.log("=====");
+      console.log(message);
+      const response = await fetch("http://localhost:8000/199740245", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: message.detail.message,
+        }),
+      });
+
+      const llmResponse = await response.json();
+
+      console.log(llmResponse);
+
+      await avatar.current.speak({
+        text: llmResponse["content"],
+        taskType: TaskType.REPEAT,
+        taskMode: TaskMode.ASYNC,
+      });
+    } catch (error) {
+      console.error("LLM processing error:", error);
+      setDebug("Error processing message " + error);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
 
   async function fetchAccessToken() {
     try {
@@ -65,6 +109,7 @@ export default function InteractiveAvatar() {
     avatar.current = new StreamingAvatar({
       token: newToken,
     });
+
     avatar.current.on(StreamingEvents.AVATAR_START_TALKING, (e) => {
       console.log("Avatar started talking", e);
     });
@@ -76,13 +121,30 @@ export default function InteractiveAvatar() {
       endSession();
     });
     avatar.current?.on(StreamingEvents.STREAM_READY, (event) => {
-      console.log(">>>>> Stream ready:", event.detail);
+      console.log(">>>>> STREAM_READY:", event.detail);
       setStream(event.detail);
     });
     avatar.current?.on(StreamingEvents.USER_START, (event) => {
-      console.log(">>>>> User started talking:", event);
+      console.log("--- USER_START:", event);
       setIsUserTalking(true);
     });
+
+    avatar.current?.on(StreamingEvents.AVATAR_TALKING_MESSAGE, (event) => {
+      //console.log(">>>>> AVATAR_TALKING_MESSAGE:", event);
+      setIsUserTalking(true);
+    });
+
+    avatar.current?.on(StreamingEvents.USER_TALKING_MESSAGE, (message) => {
+      console.info("---> USER_TALKING_MESSAGE:", message);
+      handleUserMessage(message);
+      // Handle the user's message input to the avatar
+    });
+
+    avatar.current?.on(StreamingEvents.USER_END_MESSAGE, (message) => {
+      console.log("+++ USER_END_MESSAGE:", message);
+      // Handle the end of the user's message, e.g., process the user's response
+    });
+
     avatar.current?.on(StreamingEvents.USER_STOP, (event) => {
       console.log(">>>>> User stopped talking:", event);
       setIsUserTalking(false);
@@ -97,46 +159,46 @@ export default function InteractiveAvatar() {
           emotion: VoiceEmotion.EXCITED,
         },
         language: language,
-        disableIdleTimeout: true,
       });
 
+      console.log(res);
       setData(res);
+
+      avatar.current.on(StreamingEvents.USER_END_MESSAGE, () => {});
       // default to voice mode
-      await avatar.current?.startVoiceChat({
-        useSilencePrompt: false
-      });
-      setChatMode("voice_mode");
+      //await avatar.current?.startVoiceChat();
+      //setChatMode("voice_mode");
     } catch (error) {
       console.error("Error starting avatar session:", error);
     } finally {
       setIsLoadingSession(false);
     }
   }
+
   async function handleSpeak() {
-    setIsLoadingRepeat(true);
     if (!avatar.current) {
       setDebug("Avatar API not initialized");
 
       return;
     }
-    // speak({ text: text, task_type: TaskType.REPEAT })
-    await avatar.current.speak({ text: text, taskType: TaskType.REPEAT, taskMode: TaskMode.SYNC }).catch((e) => {
-      setDebug(e.message);
-    });
+    await handleUserMessage({ detail: { message: text } });
+    setIsLoadingRepeat(true);
+
     setIsLoadingRepeat(false);
   }
+
   async function handleInterrupt() {
     if (!avatar.current) {
       setDebug("Avatar API not initialized");
 
       return;
     }
-    await avatar.current
-      .interrupt()
-      .catch((e) => {
-        setDebug(e.message);
-      });
+    console.log("interrupt happened " + text);
+    await avatar.current.interrupt().catch((e) => {
+      setDebug(e.message);
+    });
   }
+
   async function endSession() {
     await avatar.current?.stopAvatar();
     setStream(undefined);
@@ -149,12 +211,15 @@ export default function InteractiveAvatar() {
     if (v === "text_mode") {
       avatar.current?.closeVoiceChat();
     } else {
-      await avatar.current?.startVoiceChat();
+      await avatar.current?.startVoiceChat({
+        useSilencePrompt: true, // This prevents automatic responses
+      });
     }
     setChatMode(v);
   });
 
   const previousText = usePrevious(text);
+
   useEffect(() => {
     if (!previousText && text) {
       avatar.current?.startListening();
@@ -175,6 +240,7 @@ export default function InteractiveAvatar() {
       mediaStream.current.onloadedmetadata = () => {
         mediaStream.current!.play();
         setDebug("Playing");
+        console.log("Playing");
       };
     }
   }, [mediaStream, stream]);
@@ -252,18 +318,16 @@ export default function InteractiveAvatar() {
                   ))}
                 </Select>
                 <Select
+                  className="max-w-xs"
                   label="Select language"
                   placeholder="Select language"
-                  className="max-w-xs"
                   selectedKeys={[language]}
                   onChange={(e) => {
                     setLanguage(e.target.value);
                   }}
                 >
                   {STT_LANGUAGE_LIST.map((lang) => (
-                    <SelectItem key={lang.key}>
-                      {lang.label}
-                    </SelectItem>
+                    <SelectItem key={lang.key}>{lang.label}</SelectItem>
                   ))}
                 </Select>
               </div>
@@ -310,8 +374,8 @@ export default function InteractiveAvatar() {
           ) : (
             <div className="w-full text-center">
               <Button
-                isDisabled={!isUserTalking}
                 className="bg-gradient-to-tr from-indigo-500 to-indigo-300 text-white"
+                isDisabled={!isUserTalking}
                 size="md"
                 variant="shadow"
               >
