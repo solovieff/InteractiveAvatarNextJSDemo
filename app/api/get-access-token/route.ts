@@ -1,5 +1,6 @@
-const HEYGEN_API_KEY =
-  "OTg0NWFjNDQ5MWYwNDNmZDlkNTU3NDQyN2ZiNDkxZTYtMTczMDE4OTg0OA=="; //process.env.HEYGEN_API_KEY;
+import { NextResponse } from "next/server";
+
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
 
 export async function POST() {
   try {
@@ -28,4 +29,20 @@ export async function POST() {
       status: 500,
     });
   }
+}
+
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// Добавь это
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Methods": "POST",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }
