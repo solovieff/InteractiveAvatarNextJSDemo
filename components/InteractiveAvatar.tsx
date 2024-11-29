@@ -28,11 +28,6 @@ import InteractiveAvatarTextInput from "./InteractiveAvatarTextInput";
 
 import { AVATARS, STT_LANGUAGE_LIST } from "@/app/lib/constants";
 
-type PrivateAvatar = {
-  webSocket: WebSocket;
-  audioRawFrame: any;
-};
-
 export default function InteractiveAvatar() {
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isLoadingRepeat, setIsLoadingRepeat] = useState(false);
@@ -166,8 +161,8 @@ export default function InteractiveAvatar() {
 
       avatar.current.on(StreamingEvents.USER_END_MESSAGE, () => {});
       // default to voice mode
-      //await avatar.current?.startVoiceChat();
-      //setChatMode("voice_mode");
+      await avatar.current?.startVoiceChat();
+      setChatMode("voice_mode");
     } catch (error) {
       console.error("Error starting avatar session:", error);
     } finally {
