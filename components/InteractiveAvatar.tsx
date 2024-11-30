@@ -51,21 +51,24 @@ export default function InteractiveAvatar() {
     setIsProcessing(true);
     try {
       //Prevent default avatar response
-      console.log("=====");
+      console.log("++ " + process.env.NEXT_PUBLIC_KIBERNIKTO_API_URL);
       console.log(message);
-      const response = await fetch("http://localhost:8000/199740245", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        process.env.NEXT_PUBLIC_KIBERNIKTO_API_URL + "/199740245",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content: message.detail.message,
+          }),
         },
-        body: JSON.stringify({
-          content: message.detail.message,
-        }),
-      });
+      );
 
       const llmResponse = await response.json();
 
-      console.log(llmResponse);
+      console.log(llmResponse["content"]);
 
       await avatar.current.speak({
         text: llmResponse["content"],
@@ -151,7 +154,7 @@ export default function InteractiveAvatar() {
         knowledgeId: knowledgeId, // Or use a custom `knowledgeBase`.
         voice: {
           rate: 1.5, // 0.5 ~ 1.5
-          emotion: VoiceEmotion.EXCITED,
+          emotion: VoiceEmotion.SERIOUS,
         },
         language: language,
       });
@@ -159,7 +162,7 @@ export default function InteractiveAvatar() {
       console.log(res);
       setData(res);
 
-      avatar.current.on(StreamingEvents.USER_END_MESSAGE, () => {});
+      //avatar.current.on(StreamingEvents.USER_END_MESSAGE, () => {});
       // default to voice mode
       await avatar.current?.startVoiceChat();
       setChatMode("voice_mode");
