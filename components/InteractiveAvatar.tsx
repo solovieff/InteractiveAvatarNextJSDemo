@@ -14,8 +14,6 @@ import {
   CardFooter,
   Divider,
   Input,
-  Select,
-  SelectItem,
   Spinner,
   Chip,
   Tabs,
@@ -26,22 +24,22 @@ import { useMemoizedFn, usePrevious } from "ahooks";
 
 import InteractiveAvatarTextInput from "./InteractiveAvatarTextInput";
 
-import { AVATARS, STT_LANGUAGE_LIST } from "@/app/lib/constants";
+import { KNOWLEDGE_ID, AVATAR_ID } from "@/app/lib/constants";
 
 export default function InteractiveAvatar() {
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isLoadingRepeat, setIsLoadingRepeat] = useState(false);
   const [stream, setStream] = useState<MediaStream>();
   const [debug, setDebug] = useState<string>();
-  const [knowledgeId, setKnowledgeId] = useState<string>("");
-  const [avatarId, setAvatarId] = useState<string>("");
-  const [language, setLanguage] = useState<string>("en");
+  const [knowledgeId, setKnowledgeId] = useState<string>(KNOWLEDGE_ID);
+  const [avatarId, setAvatarId] = useState<string>(AVATAR_ID);
+  const [language, setLanguage] = useState<string>("ru");
 
   const [data, setData] = useState<StartAvatarResponse>();
   const [text, setText] = useState<string>("");
   const mediaStream = useRef<HTMLVideoElement>(null);
   const avatar = useRef<StreamingAvatar | null>(null);
-  const [chatMode, setChatMode] = useState("text_mode");
+  const [chatMode, setChatMode] = useState("voice_mode");
   const [isUserTalking, setIsUserTalking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -105,6 +103,7 @@ export default function InteractiveAvatar() {
     const newToken = await fetchAccessToken();
 
     avatar.current = new StreamingAvatar({
+      //basePath: "http://localhost:8000",
       token: newToken,
     });
 
@@ -299,35 +298,6 @@ export default function InteractiveAvatar() {
                   value={avatarId}
                   onChange={(e) => setAvatarId(e.target.value)}
                 />
-                <Select
-                  placeholder="Or select one from these example avatars"
-                  size="md"
-                  onChange={(e) => {
-                    setAvatarId(e.target.value);
-                  }}
-                >
-                  {AVATARS.map((avatar) => (
-                    <SelectItem
-                      key={avatar.avatar_id}
-                      textValue={avatar.avatar_id}
-                    >
-                      {avatar.name}
-                    </SelectItem>
-                  ))}
-                </Select>
-                <Select
-                  className="max-w-xs"
-                  label="Select language"
-                  placeholder="Select language"
-                  selectedKeys={[language]}
-                  onChange={(e) => {
-                    setLanguage(e.target.value);
-                  }}
-                >
-                  {STT_LANGUAGE_LIST.map((lang) => (
-                    <SelectItem key={lang.key}>{lang.label}</SelectItem>
-                  ))}
-                </Select>
               </div>
               <Button
                 className="bg-gradient-to-tr from-indigo-500 to-indigo-300 w-full text-white"

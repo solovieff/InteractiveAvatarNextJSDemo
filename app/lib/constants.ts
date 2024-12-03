@@ -21,6 +21,13 @@ export const AVATARS = [
   },
 ];
 
+export const KNOWLEDGE_ID = process.env.NEXT_PUBLIC_KNOWLEDGE_ID
+  ? process.env.NEXT_PUBLIC_KNOWLEDGE_ID
+  : "6b3e3f4d0a50428e8bd75d447b6378d7";
+export const AVATAR_ID = process.env.NEXT_PUBLIC_AVATAR_ID
+  ? process.env.NEXT_PUBLIC_AVATAR_ID
+  : "Wayne_20240711";
+
 export const STT_LANGUAGE_LIST = [
   { label: "Bulgarian", value: "bg", key: "bg" },
   { label: "Chinese", value: "zh", key: "zh" },
